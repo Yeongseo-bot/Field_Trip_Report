@@ -191,13 +191,14 @@ input.err,textarea.err,.meta input.err{border-color:var(--seal)!important;backgr
 
  <div class="card">
   <h2>기간과 장소</h2>
-  <p class="hint">날짜를 고르면 일수와 일차별 작성 칸이 자동으로 만들어져요.</p>
+  <p class="hint">날짜를 고르면 평일만 세어서 일수와 일차별 작성 칸이 자동으로 만들어져요. 주말과 공휴일은 쓰지 않아도 돼요.</p>
   <div class="g g2">
    <div class="f"><label for="start">시작일</label><input type="date" id="start" data-k="start"></div>
    <div class="f"><label for="end">종료일</label><input type="date" id="end" data-k="end"></div>
-   <div class="f"><label for="dayCnt">일간</label><input type="text" id="dayCnt" data-k="dayCnt" inputmode="numeric" maxlength="2" placeholder="자동 계산"></div>
+   <div class="f"><label for="dayCnt">일간 <span class="opt">(평일만 자동 계산)</span></label><input type="text" id="dayCnt" data-k="dayCnt" readonly tabindex="-1" placeholder="자동 계산" style="cursor:default"></div>
    <div class="f"><label for="hours">시간 <span class="opt">(해당 시에만)</span></label><input type="text" id="hours" data-k="hours" inputmode="numeric" maxlength="3"></div>
   </div>
+  <p class="cnt" id="offInfo" style="margin:10px 0 0"></p>
   <div class="f" style="margin-top:12px"><label for="place">장소</label><input type="text" id="place" data-k="place" placeholder="예: 경주 불국사, 국립경주박물관"></div>
  </div>
 
@@ -673,12 +674,42 @@ const blank = () => ({name:'',grade:'',cls:'',num:'',start:'',end:'',dayCnt:'',h
 let S = blank();
 
 /* ---------- 날짜 ---------- */
-function dates() {
-  const a = pd(S.start); let b = pd(S.end) || a;
-  if (!a || b < a) return [];
-  const out = [];
-  for (const d = new Date(a); d <= b && out.length < 31; d.setDate(d.getDate()+1)) out.push(fd(d));
-  return out;
+/* 공휴일(대체공휴일·선거일 포함). 출처: 우주항공청 월력요항, 인사혁신처.
+   2028년 이후나 새로 지정된 임시공휴일은 같은 형식으로 한 줄씩 추가하세요. */
+const HOLIDAYS = {
+  '2026-01-01':'신정','2026-02-16':'설날 연휴','2026-02-17':'설날','2026-02-18':'설날 연휴','2026-03-01':'삼일절','2026-03-02':'대체공휴일',
+  '2026-05-01':'노동절','2026-05-05':'어린이날','2026-05-24':'부처님오신날','2026-05-25':'대체공휴일','2026-06-03':'지방선거일','2026-06-06':'현충일',
+  '2026-07-17':'제헌절','2026-08-15':'광복절','2026-08-17':'대체공휴일','2026-09-24':'추석 연휴','2026-09-25':'추석','2026-09-26':'추석 연휴',
+  '2026-10-03':'개천절','2026-10-05':'대체공휴일','2026-10-09':'한글날','2026-12-25':'성탄절',
+  '2027-01-01':'신정','2027-02-06':'설날 연휴','2027-02-07':'설날','2027-02-08':'설날 연휴','2027-02-09':'대체공휴일','2027-03-01':'삼일절',
+  '2027-05-01':'노동절','2027-05-03':'대체공휴일','2027-05-05':'어린이날','2027-05-13':'부처님오신날','2027-06-06':'현충일',
+  '2027-07-17':'제헌절','2027-07-19':'대체공휴일','2027-08-15':'광복절','2027-08-16':'대체공휴일','2027-09-14':'추석 연휴','2027-09-15':'추석',
+  '2027-09-16':'추석 연휴','2027-10-03':'개천절','2027-10-04':'대체공휴일','2027-10-09':'한글날','2027-10-11':'대체공휴일',
+  '2027-12-25':'성탄절','2027-12-27':'대체공휴일'
+};
+/* 학교 재량휴업일 등 학교에서 따로 쉬는 평일이 있으면 여기에 추가하세요. 예: '2026-11-30':'재량휴업일' */
+const SCHOOL_OFF = {};
+const offReason = d => { const k = fd(d); return HOLIDAYS[k] || SCHOOL_OFF[k] || (d.getDay() === 6 ? '토' : d.getDay() === 0 ? '일' : ''); };
+function range() {
+  const a = pd(S.start), b = pd(S.end) || a;
+  if (!a || b < a) return {on: [], off: []};
+  const on = [], off = [];
+  for (const d = new Date(a); d <= b && on.length < 31 && on.length + off.length < 120; d.setDate(d.getDate()+1)) {
+    const why = offReason(d); (why ? off : on).push(why ? {d: fd(d), why} : fd(d));
+  }
+  return {on, off};
+}
+/* 체험학습 일수 = 시작일~종료일 중 평일(주말·공휴일 제외) */
+function dates() { return range().on; }
+function offInfo() {
+  const el = $('#offInfo'), r = range();
+  if (!S.start) { el.textContent = '주말(토·일)과 공휴일은 체험학습 일수에서 빠져요.'; return; }
+  if (!r.on.length && !r.off.length) { el.textContent = '종료일이 시작일보다 빨라요.'; return; }
+  const f = s => { const d = pd(s); return `${d.getMonth()+1}/${d.getDate()}(${WD[d.getDay()]})`; };
+  let t = `체험학습 일수: 평일 ${r.on.length}일`;
+  if (r.off.length) t += ` · 제외: ${r.off.map(o => f(o.d) + (o.why.length > 1 ? ' ' + o.why : '')).join(', ')}`;
+  if (!r.on.length) t = '선택한 기간에 평일이 없어요. 주말·공휴일은 체험학습 일수에 들어가지 않아요.';
+  el.textContent = t;
 }
 const dayLabel = (s, i) => { const d = pd(s); return `${i+1}일차 · ${d.getMonth()+1}월 ${d.getDate()}일(${WD[d.getDay()]})`; };
 
@@ -799,7 +830,7 @@ const ro = new ResizeObserver(scale); ro.observe(pv);
 const CHIPS = ['본 것', '들은 것', '경험한 것', '느낀 것'];
 function renderDays() {
   const ds = dates(), box = $('#days');
-  if (!ds.length) { box.innerHTML = `<div class="empty">${S.start && S.end && pd(S.end) < pd(S.start) ? '종료일이 시작일보다 빨라요. 날짜를 확인해 주세요.' : '위에서 기간을 먼저 고르면 일차별 작성 칸이 생겨요.'}</div>`; return; }
+  if (!ds.length) { box.innerHTML = `<div class="empty">${S.start && S.end && pd(S.end) < pd(S.start) ? '종료일이 시작일보다 빨라요. 날짜를 확인해 주세요.' : S.start ? '선택한 기간에 평일이 없어요. 날짜를 확인해 주세요.' : '위에서 기간을 먼저 고르면 일차별 작성 칸이 생겨요.'}</div>`; return; }
   box.innerHTML = ds.map((d, i) => `<div class="day"><div class="day-h"><b>${esc(dayLabel(d, i))}</b></div>
    <div class="chips">${CHIPS.map(c => `<button type="button" class="chip" data-chip="${c}" data-date="${d}">+ ${c}</button>`).join('')}</div>
    <textarea data-date="${d}" aria-label="${i+1}일차 내용" placeholder="예) 오전에는 ○○에 가서 … 을 보았다. 해설사 선생님께 … 라는 이야기를 들었다. … 을 직접 해 보면서 … 을 느꼈다.">${esc(S.texts[d] || '')}</textarea>
@@ -834,7 +865,7 @@ document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input',
   if (k === 'start' || k === 'end') {
     const n = dates().length;
     S.dayCnt = n ? String(n) : ''; $('#dayCnt').value = S.dayCnt;
-    renderDays(); renderPhotos();
+    renderDays(); renderPhotos(); offInfo();
   }
   changed();
 }));
@@ -960,7 +991,7 @@ function problems() {
   for (const [k, t] of [['grade', '학년을'], ['cls', '반을'], ['num', '번호를']]) if (!String(S[k]).trim()) add(`학번: ${t} 적어 주세요`, '#' + k);
   if (!S.start) add('기간: 시작일을 골라 주세요', '#start');
   if (!S.end) add('기간: 종료일을 골라 주세요', '#end');
-  if (S.start && S.end && !ds.length) add('기간: 종료일이 시작일보다 빨라요', '#end');
+  if (S.start && S.end && !ds.length) add(pd(S.end) < pd(S.start) ? '기간: 종료일이 시작일보다 빨라요' : '기간: 선택한 기간에 평일이 없어요', '#end');
   if (ds.length && !String(S.dayCnt).trim()) add('기간: 일간(일수)을 적어 주세요', '#dayCnt');
   if (!S.place.trim()) add('장소를 적어 주세요', '#place');
   const min = minChars();
@@ -1066,7 +1097,7 @@ $('#resetBottom').addEventListener('click', () => $('#resetBtn').click());
 $('#resetBtn').addEventListener('click', async () => {
   const ok = await modal('<h3>처음부터 다시 쓸까요?</h3><p>입력한 내용과 사진이 모두 지워져요. 되돌릴 수 없어요.</p>', [{t: '취소', v: false}, {t: '모두 지우기', v: true, pri: 1}]);
   if (!ok) return;
-  S = blank(); fillInputs(); renderDays(); renderPhotos(); changed(); toast('새 양식으로 시작해요.');
+  S = blank(); fillInputs(); renderDays(); renderPhotos(); offInfo(); changed(); toast('새 양식으로 시작해요.');
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classList.contains('show')) { const b = mod.querySelector('[data-i="0"]'); b && b.click(); } });
 
@@ -1086,7 +1117,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classLi
 /* ---------- 시작 ---------- */
 (async () => {
   try { const v = await DB.get(); if (v && typeof v === 'object') { S = Object.assign(blank(), v); ['submit', 'guardian', 'sigG', 'sigS'].forEach(k => delete S[k]); S.photos = (S.photos || []).map(migrate); $('#saved').textContent = '이전에 쓰던 내용을 불러왔어요'; } } catch {}
-  fillInputs(); renderDays(); renderPhotos(); scale(); renderPreview();
+  S.dayCnt = dates().length ? String(dates().length) : '';
+  fillInputs(); renderDays(); renderPhotos(); offInfo(); scale(); renderPreview();
   try { await document.fonts.load('400 13.5px "Nanum Gothic"', '가'); await document.fonts.load('800 13.5px "Nanum Gothic"', '가'); } catch {}
   renderPreview();
 })();
