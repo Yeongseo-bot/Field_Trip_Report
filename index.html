@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>체험학습 결과보고서 작성</title>
+<meta name="description" content="학교장 허가 교외체험학습 결과보고서를 작성하고 PDF로 저장하는 페이지">
+<meta property="og:title" content="교외체험학습 결과보고서 작성">
+<meta property="og:description" content="내용과 사진을 입력하고 PDF로 저장하세요.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#2146c7">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+<script defer src="vendor/html2canvas.min.js"></script>
+<script defer src="vendor/jspdf.umd.min.js"></script>
+<style>
+/* VOICE: 차분하고 친절한 학교 행정 도구 — 학생이 헷갈리지 않게.
+   IDEA: 책상 위에 놓인 종이 양식. 왼쪽에서 쓰면 오른쪽 종이에 바로 찍힌다.
+   PICTURE: 원본 양식과 같은 A4 미리보기(오른쪽, 살아 있는 결과물).
+   COLOUR and TYPE: 흰 종이 + 잉크 블루 버튼 + 도장 빨강은 (인)에만. IBM Plex Sans KR / 양식은 Nanum Gothic.
+   LAYOUT: 2단(입력 | 미리보기), 980px 아래에서는 입력 → 미리보기 순서로 쌓임. */
+:root{color-scheme:light dark;
+ --bg:light-dark(#efefec,#131518);--card:light-dark(#ffffff,#1d2024);--ink:light-dark(#17191c,#eceef1);
+ --mut:light-dark(#5b6169,#a3a9b1);--line:light-dark(#d8d9d5,#353a40);--soft:light-dark(#f6f6f4,#25292e);
+ --acc:light-dark(#2146c7,#86a0ff);--accink:light-dark(#fff,#0f1530);--seal:#c8352b;--desk:light-dark(#d6d5d0,#0b0c0e);
+ --warn:light-dark(#9a4a00,#ffb46b);--warnbg:light-dark(#fff3e4,#33240f)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans KR",system-ui,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line)}
+.top-in{max-width:1400px;margin:0 auto;padding:12px max(3vw,16px);display:flex;gap:10px;align-items:center}
+#pvJump{display:none}
+.top h1{font-size:20px;line-height:1.2;margin:0;font-weight:700}
+.top .sub{font-size:13px;color:var(--mut)}
+.top .sp{flex:1}
+.saved{font-size:13px;color:var(--mut)}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--soft)}
+.btn.pri{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--acc) 55%,transparent);outline-offset:2px}
+.wrap{max-width:1400px;margin:0 auto;padding:20px max(3vw,16px) 60px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:24px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.card h2{font-size:18px;margin:0 0 4px}
+.card .hint{font-size:14px;color:var(--mut);margin:0 0 14px}
+.g{display:grid;gap:12px}
+.g2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.f label{display:block;font-size:14px;font-weight:600;margin-bottom:5px}
+.f label .opt{font-weight:400;color:var(--mut)}
+input[type=text],input[type=date],select,textarea{width:100%;min-height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--soft);font-size:16px}
+textarea{min-height:150px;resize:vertical;line-height:1.6}
+.num3{display:flex;gap:8px;align-items:center}
+.num3 input{width:64px;text-align:center}
+.num3 span{font-size:15px;color:var(--mut)}
+.day{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;background:var(--soft)}
+.day-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.day-h b{font-size:16px}
+.day-h span{font-size:13px;color:var(--mut)}
+.day textarea{background:var(--card)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{min-height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px}
+.cnt{font-size:13px;color:var(--mut);margin-top:6px}
+.cnt.low{color:var(--warn)}
+.empty{padding:16px;border:1px dashed var(--line);border-radius:12px;color:var(--mut);font-size:15px;text-align:center}
+.drop{display:block;border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;cursor:pointer;color:var(--mut);font-size:15px}
+.drop.on{border-color:var(--acc);color:var(--acc)}
+.drop b{color:var(--acc)}
+.phs{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:12px;margin-top:12px}
+.phc{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--soft)}
+.phc .im{aspect-ratio:3/2;background:#000 center/contain no-repeat}
+.phc .ctl{padding:8px;display:grid;gap:6px}
+.phc select{min-height:38px;padding:4px 8px;font-size:14px}
+.phc .row{display:flex;gap:4px}
+.phc .row button{flex:1;min-height:34px;border:1px solid var(--line);border-radius:7px;background:var(--card);cursor:pointer;font-size:13px}
+.phc .row button.del{color:var(--seal)}
+.meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.meta label{display:grid;gap:2px;font-size:12px;color:var(--mut);text-align:center}
+.meta input{width:100%;min-height:40px;padding:4px 2px;text-align:center;font-size:16px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink)}
+.meta input.miss{border-color:var(--warn);background:var(--warnbg)}
+.ph-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.ph-tools span{font-size:14px;color:var(--mut)}
+.pv-col{position:sticky;top:84px}
+.pv-head{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 10px;gap:8px;flex-wrap:wrap}
+.pv-head b{font-size:16px}
+.pv-head span{font-size:13px;color:var(--mut)}
+.desk{background:var(--desk);border-radius:14px;padding:16px;max-height:calc(100vh - 140px);overflow:auto}
+#pv{--s:.6}
+.pw{width:calc(794px * var(--s));height:calc(1123px * var(--s));margin:0 auto 14px;box-shadow:0 1px 2px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.12);overflow:hidden;background:#fff}
+.pw>.pg{transform:scale(var(--s));transform-origin:0 0}
+.bottom-save{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.bottom-save p{margin:0;font-size:14px;color:var(--mut);flex:1 1 220px}
+@media(max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}.pv-col{position:static;scroll-margin-top:80px}.desk{max-height:none}#pvJump{display:inline-flex}}
+@media(max-width:600px){.g2{grid-template-columns:minmax(0,1fr)}.top-in{gap:6px}.top h1{font-size:16px}.top .sub,.saved,#resetBtn{display:none}.top .btn{padding:0 12px;font-size:14px}.card{padding:16px}.reset2{display:inline-flex!important}}
+/* modal + toast */
+.ov{position:fixed;inset:0;background:rgba(10,12,16,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.ov.show{display:flex}
+.mod{background:var(--card);border-radius:16px;max-width:460px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.mod h3{margin:0 0 8px;font-size:18px}
+.mod ul{margin:8px 0 16px;padding-left:20px;font-size:15px}
+.mod li{margin:3px 0}
+.mod p{margin:0 0 14px;font-size:15px;color:var(--mut)}
+.mod .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.bar{height:8px;border-radius:9px;background:var(--soft);overflow:hidden;margin:6px 0 4px}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .25s}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-size:15px;z-index:60;transition:.25s;pointer-events:none;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%)}
+@media(prefers-reduced-motion:reduce){#toast,.bar i{transition:none}}
+#exp{position:fixed;left:-10000px;top:0;width:794px;pointer-events:none}
+.inapp{background:var(--warnbg);color:var(--warn);font-size:14px;padding:10px max(3vw,16px);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.inapp a{color:inherit;font-weight:700}
+.privacy{font-size:13px;color:var(--mut);text-align:center;margin:4px 0 0}
+
+/* ===== 종이 양식 (원본 PDF 배치) ===== */
+.pg{position:relative;width:794px;height:1123px;background:#fff;color:#000;font-family:"Nanum Gothic","Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:13px;line-height:1.3;overflow:hidden}
+.pg *{box-sizing:border-box}
+.pg .ab{position:absolute}
+.p-ttl{left:96px;top:124px;width:480px;text-align:center;font-size:23px;font-weight:700;letter-spacing:-.3px}
+.appr{left:583px;top:104px;width:134px;border-collapse:collapse;font-size:12px;text-align:center;line-height:1.05}
+.appr td{border:1px solid #000;width:50%}
+.appr tr:first-child td{height:30px}
+.appr tr:last-child td{height:44px}
+.p-note{left:78px;top:184px;font-size:11.5px}
+.frm{left:78px;top:205px;width:638px;border:1.5px solid #000}
+.rw{display:flex;height:26px;border-bottom:1px solid #000}
+.lb{background:#e4e4e4;font-weight:700;display:flex;align-items:center;justify-content:center;border-right:1px solid #000;flex:none}
+.vl{display:flex;align-items:center;padding:0 10px;white-space:nowrap;overflow:hidden;flex:1}
+.vl.c{justify-content:center}
+.u{display:inline-block;min-width:26px;text-align:center;font-weight:700}
+.ch{height:52px;background:#ececec;border-bottom:1px dotted #000;padding:3px 8px 0}
+.ch .t{text-align:center;font-weight:700;font-size:13.5px;line-height:17px;margin-bottom:1px}
+.ch .n{font-size:11.5px;font-weight:700;line-height:14px;white-space:nowrap}
+.ln{height:26px;line-height:25px;border-bottom:1px dotted #444;padding:0 13px;white-space:nowrap;overflow:hidden;font-size:13.5px}
+.ln:last-child{border-bottom:0}
+.ln.b{font-weight:800}
+.foot{height:103px;background:#ececec;border-top:1px solid #000;position:relative}
+.foot .l1{position:absolute;top:6px;left:0;right:0;text-align:center;font-weight:700;font-size:13.5px}
+.foot .dt{position:absolute;top:28px;left:0;right:0;text-align:center;font-weight:700;letter-spacing:.5px}
+.sg{position:absolute;right:16px;display:flex;align-items:center;font-size:12.5px;height:17px}
+.sg .k{width:60px;text-align:right}
+.sg .nm{width:96px;text-align:center;font-weight:700}
+.sg .in{width:30px;text-align:center;position:relative}
+.sg .in img{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:32px;max-width:90px}
+.foot .sch{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-weight:800;font-size:15px;letter-spacing:.5px}
+.p-n2{left:78px;top:996px;font-size:11.5px;line-height:1.75}
+.p-n2 u{font-weight:700}
+.b-ttl{left:0;right:0;top:66px;text-align:center;font-size:20px;font-weight:700}
+.b-id{left:78px;top:112px;font-size:12.5px}
+.frm2{left:78px;top:140px;width:638px;border:1.5px solid #000}
+.ch2{height:32px;line-height:31px;background:#ececec;border-bottom:1px dotted #000;text-align:center;font-weight:700;font-size:13.5px}
+.ph-ttl{left:0;right:0;top:70px;text-align:center;font-size:20px;font-weight:700}
+.phg{left:80px;top:112px;width:634px;display:grid;grid-template-columns:1fr 1fr;border:1px solid #000}
+.cell{border-right:1px solid #000;border-bottom:1px solid #000}
+.cell:nth-child(2n){border-right:0}
+.cell:nth-last-child(-n+2){border-bottom:0}
+.box{height:203px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cap{height:27px;border-top:1px solid #000;display:flex;align-items:center;justify-content:center;font-size:12px;white-space:nowrap}
+.cap .u{min-width:30px}
+</style>
+</head>
+<body>
+<header class="top"><div class="inapp" id="inapp" hidden></div><div class="top-in">
+ <div><h1>체험학습 결과보고서 작성</h1><div class="sub">학교장 허가 교외체험학습 · 쓰면 오른쪽 양식에 바로 반영돼요</div></div>
+ <span class="sp"></span>
+ <span class="saved" id="saved"></span>
+ <button class="btn" id="resetBtn" type="button">처음부터</button>
+ <button class="btn" id="pvJump" type="button">미리보기</button>
+ <button class="btn pri" id="saveTop" type="button">PDF 저장</button>
+</div></header>
+
+<main class="wrap">
+<section>
+ <div class="card">
+  <h2>기본 정보</h2>
+  <p class="hint">양식 맨 위 칸에 들어가요.</p>
+  <div class="g g2">
+   <div class="f"><label for="name">이름</label><input type="text" id="name" data-k="name" autocomplete="name" placeholder="정원이"></div>
+   <div class="f"><label for="grade">학번</label>
+    <div class="num3"><input type="text" id="grade" data-k="grade" inputmode="numeric" maxlength="1" aria-label="학년"><span>학년</span><input type="text" id="cls" data-k="cls" inputmode="numeric" maxlength="2" aria-label="반"><span>반</span><input type="text" id="num" data-k="num" inputmode="numeric" maxlength="2" aria-label="번호"><span>번</span></div>
+   </div>
+  </div>
+ </div>
+
+ <div class="card">
+  <h2>기간과 장소</h2>
+  <p class="hint">날짜를 고르면 일수와 일차별 작성 칸이 자동으로 만들어져요.</p>
+  <div class="g g2">
+   <div class="f"><label for="start">시작일</label><input type="date" id="start" data-k="start"></div>
+   <div class="f"><label for="end">종료일</label><input type="date" id="end" data-k="end"></div>
+   <div class="f"><label for="dayCnt">일간</label><input type="text" id="dayCnt" data-k="dayCnt" inputmode="numeric" maxlength="2" placeholder="자동 계산"></div>
+   <div class="f"><label for="hours">시간 <span class="opt">(해당 시에만)</span></label><input type="text" id="hours" data-k="hours" inputmode="numeric" maxlength="3"></div>
+  </div>
+  <div class="f" style="margin-top:12px"><label for="place">장소</label><input type="text" id="place" data-k="place" placeholder="예: 경주 불국사, 국립경주박물관"></div>
+ </div>
+
+ <div class="card">
+  <h2>일자별 체험 내용</h2>
+  <p class="hint">날마다 본 것, 들은 것, 경험한 것, 느낀 것을 구체적으로 써 주세요. 내용이 미흡하면 미인정될 수 있어요. 첫 장을 넘치면 별지가 자동으로 붙어요.</p>
+  <div id="days"></div>
+  <div class="cnt" id="lineInfo" style="margin-top:12px"></div>
+ </div>
+
+ <div class="card">
+  <h2>일자별 증빙 사진</h2>
+  <p class="hint">본인이 포함된 현장 사진을 올리고, 사진마다 몇 일차·몇 월 며칠인지 적어 주세요. 2일 당 최소 1장씩 제출해야 해요. 일차를 적으면 월/일은 자동으로 채워지고, 직접 고칠 수 있어요.</p>
+  <label class="drop" id="drop" for="file"><b>사진 선택</b> 또는 여기로 끌어다 놓기<br><small>여러 장을 한 번에 고를 수 있어요</small></label>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+  <div class="ph-tools" id="phTools" hidden><span id="phCount"></span><button type="button" class="btn sm" id="phSort">일차 순서로 정렬</button></div>
+  <div class="phs" id="phs"></div>
+ </div>
+
+ <div class="card bottom-save">
+  <p id="sumInfo">다 썼으면 PDF로 저장하세요. 제출일과 보호자·학생 서명은 인쇄한 뒤 직접 적어요.</p>
+  <button class="btn reset2" type="button" id="resetBottom" style="display:none">처음부터</button>
+  <button class="btn pri" id="saveBottom" type="button">PDF 저장</button>
+ </div>
+ <p class="privacy">입력한 내용과 사진은 이 기기의 브라우저에만 저장되고, 어디에도 전송되지 않아요.</p>
+</section>
+
+<aside class="pv-col" id="pvCol">
+ <div class="pv-head"><b>미리보기</b><span id="pgInfo"></span></div>
+ <div class="desk"><div id="pv"></div></div>
+</aside>
+</main>
+
+<div id="exp" aria-hidden="true"></div>
+<div class="ov" id="ov"><div class="mod" role="dialog" aria-modal="true" id="mod"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+{
+const SCHOOL = '문정여자고등학교장';
+const L1 = 21, L2 = 33, PER = 8, TW = 606;
+const BOX_W = 315, BOX_H = 201;
+const WD = '일월화수목금토';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const p2 = n => String(n).padStart(2, '0');
+const fd = d => `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+const pd = s => { if (!s) return null; const [a,b,c] = s.split('-').map(Number); return a ? new Date(a, b-1, c) : null; };
+const blank = () => ({name:'',grade:'',cls:'',num:'',start:'',end:'',dayCnt:'',hours:'',place:'',texts:{},photos:[]});
+let S = blank();
+
+/* ---------- 날짜 ---------- */
+function dates() {
+  const a = pd(S.start); let b = pd(S.end) || a;
+  if (!a || b < a) return [];
+  const out = [];
+  for (const d = new Date(a); d <= b && out.length < 31; d.setDate(d.getDate()+1)) out.push(fd(d));
+  return out;
+}
+const dayLabel = (s, i) => { const d = pd(s); return `${i+1}일차 · ${d.getMonth()+1}월 ${d.getDate()}일(${WD[d.getDay()]})`; };
+
+/* ---------- 줄바꿈 계산 ---------- */
+const mctx = document.createElement('canvas').getContext('2d');
+const FONT = '13.5px "Nanum Gothic","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+function wrap(p) {
+  mctx.font = FONT;
+  const w = t => mctx.measureText(t).width, res = [];
+  let line = '';
+  for (const tok of p.split(/(\s+)/)) {
+    if (!tok) continue;
+    if (w(line + tok) <= TW) { line += tok; continue; }
+    if (line.trim()) { res.push(line.trimEnd()); line = tok.trimStart(); } else line = tok.trimStart();
+    while (w(line) > TW) {
+      let i = 1; while (i < line.length && w(line.slice(0, i+1)) <= TW) i++;
+      res.push(line.slice(0, i)); line = line.slice(i);
+    }
+  }
+  if (line.trim()) res.push(line.trimEnd());
+  return res;
+}
+function contentLines() {
+  const out = [];
+  dates().forEach((d, i) => {
+    const t = (S.texts[d] || '').trim();
+    if (!t) return;
+    out.push({t: dayLabel(d, i), b: 1});
+    t.split('\n').forEach(p => { p = p.trim(); if (p) wrap(p).forEach(x => out.push({t: x})); });
+  });
+  return out;
+}
+function paginate(lines) {
+  const pages = [[]];
+  for (const ln of lines) {
+    let cur = pages[pages.length-1], cap = pages.length === 1 ? L1 : L2;
+    if (ln.b && cur.length && cur.length === cap - 1) cur.push({t: ''});
+    if (cur.length >= cap) { pages.push([]); cur = pages[pages.length-1]; }
+    cur.push(ln);
+  }
+  return pages;
+}
+const lineRows = (arr, cap) => { let h = ''; for (let i = 0; i < cap; i++) { const l = arr[i]; h += `<div class="ln${l && l.b ? ' b' : ''}">${l ? esc(l.t) : ''}</div>`; } return h; };
+
+/* ---------- 양식 페이지 HTML ---------- */
+function idText() { return `${S.grade || '  '}학년 ${S.cls || '  '}반 ${S.num || '  '}번`; }
+function page1(lines) {
+  const a = pd(S.start), b = pd(S.end) || a;
+  const U = (v, w) => `<span class="u"${w ? ` style="min-width:${w}px"` : ''}>${esc(v)}</span>`;
+  const per = `${a ? U(a.getFullYear(), 38) : '20' + U('', 18)} 년 ${U(a ? a.getMonth()+1 : '')} 월 ${U(a ? a.getDate() : '')} 일 &nbsp;~&nbsp; ${b ? U(b.getFullYear(), 38) : '20' + U('', 18)} 년 ${U(b ? b.getMonth()+1 : '')} 월 ${U(b ? b.getDate() : '')} 일 (${U(S.dayCnt, 30)})일간 (${U(S.hours, 30)})시간`;
+  mctx.font = '700 13px "Nanum Gothic",sans-serif';
+  const placeFs = mctx.measureText(S.place).width > 540 ? 'font-size:11px;' : '';
+  return `
+  <div class="ab p-ttl">「학교장 허가 교외체험학습」 결과보고서</div>
+  <table class="ab appr"><tr><td>담임</td><td>학년부장<br>(전결)</td></tr><tr><td></td><td></td></tr></table>
+  <div class="ab p-note">• 체험학습 종료 후 반드시 보고서를 제출해야 하며, 미제출시 출석으로 인정되지 않습니다.</div>
+  <div class="ab frm">
+   <div class="rw"><div class="lb" style="width:70px">이름</div><div class="vl" style="flex:none;width:205px;font-weight:700">${esc(S.name)}</div><div class="lb" style="width:112px;border-left:1px solid #000">학번</div><div class="vl c">${U(S.grade)} 학년 &nbsp;${U(S.cls)} 반 &nbsp;${U(S.num)} 번</div></div>
+   <div class="rw"><div class="lb" style="width:70px">기간</div><div class="vl c">${per}</div></div>
+   <div class="rw" style="border-bottom:0"><div class="lb" style="width:70px">장소</div><div class="vl" style="font-weight:700;${placeFs}">${esc(S.place)}</div></div>
+   <div class="ch" style="border-top:1px solid #000"><div class="t">교외(현장) 체험학습 내용</div><div class="n">※ 일정별로 본 것, 들은 것, 경험한 것, 느낀 것을 구체적으로 자세하게 적습니다.<br>&nbsp;&nbsp;&nbsp;일자별로 내용을 구체적으로 작성할 것. 내용이 미흡할 경우 미인정 처리될 수 있음</div></div>
+   <div>${lineRows(lines, L1)}</div>
+   <div class="foot">
+    <div class="l1">위와 같이 「학교장 허가 교외체험학습」 결과 보고서를 제출합니다.</div>
+    <div class="dt">20&nbsp;&nbsp;&nbsp;&nbsp; . &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; . &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .</div>
+    <div class="sg" style="top:46px"><span class="k">보호자 :</span><span class="nm"></span><span class="in">(인)</span></div>
+    <div class="sg" style="top:64px"><span class="k">학생 :</span><span class="nm"></span><span class="in">(인)</span></div>
+    <div class="sch">${SCHOOL} &nbsp;귀하</div>
+   </div>
+  </div>
+  <div class="ab p-n2">• &nbsp;용지가 부족할 경우 별지에 작성하여 함께 제출합니다.<br>• &nbsp;<u>본인 포함된 현장 사진</u> 등 자료를 덧붙여 제출하여야 합니다.</div>`;
+}
+function pageExtra(lines, n) {
+  return `
+  <div class="ab b-ttl">「학교장 허가 교외체험학습」 결과보고서 (별지 ${n})</div>
+  <div class="ab b-id">이름 : <b>${esc(S.name)}</b> &nbsp;&nbsp;&nbsp; 학번 : <b>${esc(idText())}</b></div>
+  <div class="ab frm2"><div class="ch2">교외(현장) 체험학습 내용 (계속)</div><div>${lineRows(lines, L2)}</div></div>`;
+}
+function fit(p) {
+  const s = Math.min(BOX_W / p.w, BOX_H / p.h);
+  return `width:${Math.round(p.w*s)}px;height:${Math.round(p.h*s)}px`;
+}
+function pagePhotos(list, n, total) {
+  let cells = '';
+  for (let i = 0; i < PER; i++) {
+    const p = list[i];
+    const day = p ? p.day : '', m = p ? p.m : '', d = p ? p.d : '';
+    cells += `<div class="cell"><div class="box">${p ? `<img src="${p.src}" style="${fit(p)}" alt="">` : ''}</div>
+      <div class="cap">(<span class="u">${esc(day)}</span>)일 차 : 일자 (<span class="u">${esc(m)}</span>)월 (<span class="u">${esc(d)}</span>)일</div></div>`;
+  }
+  return `<div class="ab ph-ttl">「학교장 허가 교외체험학습」 결과보고서 일자별 증빙 사진${total > 1 ? ` (${n}/${total})` : ''}</div>
+  <div class="ab phg">${cells}</div>`;
+}
+function buildPages() {
+  const pages = paginate(contentLines());
+  const out = [page1(pages[0])];
+  pages.slice(1).forEach((pl, i) => out.push(pageExtra(pl, i+1)));
+  const ph = S.photos;
+  const nph = Math.max(1, Math.ceil(ph.length / PER));
+  for (let i = 0; i < nph; i++) out.push(pagePhotos(ph.slice(i*PER, i*PER+PER), i+1, nph));
+  return {html: out, extra: pages.length - 1, photoPages: nph, lines: pages.reduce((n, p) => n + p.length, 0)};
+}
+
+/* ---------- 미리보기 ---------- */
+const pv = $('#pv');
+let rT;
+function renderPreview() {
+  const r = buildPages();
+  pv.innerHTML = r.html.map(h => `<div class="pw"><div class="pg">${h}</div></div>`).join('');
+  $('#pgInfo').textContent = `총 ${r.html.length}쪽 · 본문 1쪽${r.extra ? ` + 별지 ${r.extra}쪽` : ''} + 사진 ${r.photoPages}쪽`;
+  $('#lineInfo').textContent = r.extra ? `본문이 첫 장(${L1}줄)을 넘어 별지 ${r.extra}쪽이 추가됐어요.` : `첫 장 ${L1}줄 중 ${r.lines}줄 사용 중`;
+}
+const schedule = () => { clearTimeout(rT); rT = setTimeout(renderPreview, 120); };
+function scale() { const w = pv.clientWidth; pv.style.setProperty('--s', Math.min(1, w / 794).toFixed(4)); }
+const ro = new ResizeObserver(scale); ro.observe(pv);
+
+/* ---------- 일자별 입력 ---------- */
+const CHIPS = ['본 것', '들은 것', '경험한 것', '느낀 것'];
+function renderDays() {
+  const ds = dates(), box = $('#days');
+  if (!ds.length) { box.innerHTML = `<div class="empty">${S.start && S.end && pd(S.end) < pd(S.start) ? '종료일이 시작일보다 빨라요. 날짜를 확인해 주세요.' : '위에서 기간을 먼저 고르면 일차별 작성 칸이 생겨요.'}</div>`; return; }
+  box.innerHTML = ds.map((d, i) => `<div class="day"><div class="day-h"><b>${esc(dayLabel(d, i))}</b></div>
+   <div class="chips">${CHIPS.map(c => `<button type="button" class="chip" data-chip="${c}" data-date="${d}">+ ${c}</button>`).join('')}</div>
+   <textarea data-date="${d}" aria-label="${i+1}일차 내용" placeholder="예) 오전에는 ○○에 가서 … 을 보았다. 해설사 선생님께 … 라는 이야기를 들었다. … 을 직접 해 보면서 … 을 느꼈다.">${esc(S.texts[d] || '')}</textarea>
+   <div class="cnt" data-cnt="${d}"></div></div>`).join('');
+  ds.forEach(updCount);
+}
+function updCount(d) {
+  const el = document.querySelector(`[data-cnt="${d}"]`); if (!el) return;
+  const n = (S.texts[d] || '').replace(/\s/g, '').length;
+  el.textContent = n < 150 ? `${n}자 · 조금 더 자세히 써 보세요` : `${n}자`;
+  el.classList.toggle('low', n < 150);
+}
+$('#days').addEventListener('input', e => {
+  const t = e.target; if (!t.dataset.date) return;
+  S.texts[t.dataset.date] = t.value; updCount(t.dataset.date); changed();
+});
+$('#days').addEventListener('click', e => {
+  const b = e.target.closest('[data-chip]'); if (!b) return;
+  const ta = document.querySelector(`textarea[data-date="${b.dataset.date}"]`);
+  const ins = (ta.value && !ta.value.endsWith('\n') ? '\n' : '') + `[${b.dataset.chip}] `;
+  ta.value += ins; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  S.texts[b.dataset.date] = ta.value; updCount(b.dataset.date); changed();
+});
+
+/* ---------- 기본 입력 ---------- */
+document.querySelectorAll('[data-k]').forEach(el => el.addEventListener('input', () => {
+  const k = el.dataset.k;
+  S[k] = el.value;
+  if (k === 'start' || k === 'end') {
+    const n = dates().length;
+    S.dayCnt = n ? String(n) : ''; $('#dayCnt').value = S.dayCnt;
+    renderDays(); renderPhotos();
+  }
+  changed();
+}));
+function fillInputs() { document.querySelectorAll('[data-k]').forEach(el => { el.value = S[el.dataset.k] ?? ''; }); }
+
+/* ---------- 사진 ---------- */
+function loadImg(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
+      const w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(im, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res({id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), src: c.toDataURL('image/jpeg', .85), w, h});
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(file.name); };
+    im.src = url;
+  });
+}
+async function addFiles(files) {
+  const imgs = [...files].filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+  if (!imgs.length) return;
+  const fails = [];
+  toast(`사진 ${imgs.length}장 넣는 중…`);
+  for (const f of imgs) {
+    if (S.photos.length >= 32) { toast('사진은 32장까지 넣을 수 있어요.'); break; }
+    try { const p = await loadImg(f); p.day = ''; p.m = ''; p.d = ''; S.photos.push(p); }
+    catch (n) { fails.push(n); }
+  }
+  renderPhotos(); changed();
+  toast(fails.length ? `${fails.length}장은 열 수 없는 형식이에요 (HEIC는 JPG로 바꿔 올려 주세요).` : '사진을 넣었어요. 사진마다 일차와 날짜를 적어 주세요.');
+}
+const missing = p => !p.day || !p.m || !p.d;
+function phCount() {
+  const n = S.photos.length, k = S.photos.filter(missing).length;
+  $('#phTools').hidden = !n;
+  $('#phCount').textContent = `사진 ${n}장${k ? ` · 일차/날짜 빈칸 ${k}장` : ' · 모두 작성됨'}`;
+}
+function renderPhotos() {
+  const fld = (p, f, label) => `<label>${label}<input type="text" inputmode="numeric" maxlength="2" data-id="${p.id}" data-f="${f}" value="${esc(p[f])}"${p[f] ? '' : ' class="miss"'}></label>`;
+  $('#phs').innerHTML = S.photos.map((p, i) => `<div class="phc">
+    <div class="im" style="background-image:url('${p.src}')" role="img" aria-label="사진 ${i+1}"></div>
+    <div class="ctl"><div class="meta" role="group" aria-label="사진 ${i+1} 일차와 날짜">${fld(p, 'day', '일차')}${fld(p, 'm', '월')}${fld(p, 'd', '일')}</div>
+    <div class="row"><button type="button" data-mv="-1" data-id="${p.id}" aria-label="앞으로">◀</button><button type="button" data-mv="1" data-id="${p.id}" aria-label="뒤로">▶</button><button type="button" class="del" data-del="${p.id}">삭제</button></div></div></div>`).join('');
+  phCount();
+}
+const file = $('#file'), drop = $('#drop');
+file.addEventListener('change', () => { addFiles(file.files); file.value = ''; });
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('on'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('on'); }));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+$('#phs').addEventListener('input', e => {
+  const t = e.target, f = t.dataset.f; if (!f) return;
+  const p = S.photos.find(x => x.id === t.dataset.id); if (!p) return;
+  t.value = t.value.replace(/\D/g, ''); p[f] = t.value;
+  if (f === 'day') {
+    const ds = dates()[+p.day - 1];
+    if (ds) {
+      const dt = pd(ds); p.m = String(dt.getMonth()+1); p.d = String(dt.getDate());
+      const card = t.closest('.phc');
+      card.querySelector('[data-f="m"]').value = p.m; card.querySelector('[data-f="d"]').value = p.d;
+    }
+  }
+  t.closest('.phc').querySelectorAll('[data-f]').forEach(x => x.classList.toggle('miss', !p[x.dataset.f]));
+  phCount(); changed();
+});
+$('#phs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.del) { S.photos = S.photos.filter(x => x.id !== b.dataset.del); }
+  else if (b.dataset.mv) {
+    const i = S.photos.findIndex(x => x.id === b.dataset.id), j = i + +b.dataset.mv;
+    if (j < 0 || j >= S.photos.length) return;
+    [S.photos[i], S.photos[j]] = [S.photos[j], S.photos[i]];
+  }
+  renderPhotos(); changed();
+});
+$('#phSort').addEventListener('click', () => {
+  const key = p => (+p.day || 999) * 10000 + (+p.m || 99) * 100 + (+p.d || 99);
+  S.photos = S.photos.map((p, i) => [p, i]).sort((a, b) => key(a[0]) - key(b[0]) || a[1] - b[1]).map(x => x[0]);
+  renderPhotos(); changed(); toast('일차 순서로 정렬했어요.');
+});
+
+function migrate(p) {
+  if (typeof p.day === 'number') { const ds = dates()[p.day - 1]; const dt = ds ? pd(ds) : null; return {...p, day: String(p.day), m: dt ? String(dt.getMonth()+1) : '', d: dt ? String(dt.getDate()) : ''}; }
+  return {...p, day: p.day ?? '', m: p.m ?? '', d: p.d ?? ''};
+}
+
+/* ---------- 자동 저장 (이 브라우저에만) ---------- */
+const DB = {
+  open() { return new Promise((res, rej) => { const r = indexedDB.open('trip-report', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async get() { const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction('s').objectStore('s').get('state'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async put(v) { const db = await this.open(); return new Promise((res, rej) => { const t = db.transaction('s', 'readwrite'); t.objectStore('s').put(v, 'state'); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+};
+let sT;
+function changed() {
+  schedule(); clearTimeout(sT);
+  sT = setTimeout(async () => {
+    try { await DB.put(JSON.parse(JSON.stringify(S))); const d = new Date(); $('#saved').textContent = `자동 저장됨 ${p2(d.getHours())}:${p2(d.getMinutes())}`; }
+    catch { $('#saved').textContent = '이 브라우저에는 자동 저장이 안 돼요'; }
+  }, 600);
+}
+
+/* ---------- 모달 · 토스트 ---------- */
+const ov = $('#ov'), mod = $('#mod');
+function modal(html, acts) {
+  return new Promise(res => {
+    mod.innerHTML = html + `<div class="acts">${acts.map((a, i) => `<button type="button" class="btn${a.pri ? ' pri' : ''}" data-i="${i}">${a.t}</button>`).join('')}</div>`;
+    ov.classList.add('show');
+    mod.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { ov.classList.remove('show'); res(acts[+b.dataset.i].v); }));
+    const f = mod.querySelector('.pri') || mod.querySelector('button'); f && f.focus();
+  });
+}
+let tT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tT); tT = setTimeout(() => t.classList.remove('show'), 3200); }
+
+/* ---------- 확인 후 PDF ---------- */
+function problems() {
+  const p = [], ds = dates();
+  if (!S.name.trim()) p.push('이름');
+  if (!S.grade || !S.cls || !S.num) p.push('학번(학년·반·번)');
+  if (!S.start || !S.end) p.push('기간(시작일·종료일)');
+  else if (!ds.length) p.push('기간 (종료일이 시작일보다 빠름)');
+  if (!S.place.trim()) p.push('장소');
+  const emp = ds.map((d, i) => (S.texts[d] || '').trim() ? 0 : i+1).filter(Boolean);
+  if (emp.length) p.push(`체험 내용 비어 있음: ${emp.join(', ')}일차`);
+  const short = ds.map((d, i) => { const n = (S.texts[d] || '').replace(/\s/g, '').length; return n && n < 150 ? i+1 : 0; }).filter(Boolean);
+  if (short.length) p.push(`내용이 짧음: ${short.join(', ')}일차 (미흡하면 미인정 가능)`);
+  if (!S.photos.length) p.push('본인이 포함된 현장 사진');
+  const pm = S.photos.map((x, i) => missing(x) ? i+1 : 0).filter(Boolean);
+  if (pm.length) p.push(`사진 일차·날짜 빈칸: ${pm.join(', ')}번째 사진`);
+  return p;
+}
+async function makePdf(bar) {
+  if (!window.html2canvas || !window.jspdf) throw new Error('lib');
+  const r = buildPages(), exp = $('#exp');
+  exp.innerHTML = r.html.map(h => `<div class="pg">${h}</div>`).join('');
+  try { await document.fonts.ready; } catch {}
+  await Promise.all([...exp.querySelectorAll('img')].map(im => im.decode ? im.decode().catch(() => {}) : 0));
+  const pdf = new window.jspdf.jsPDF({unit: 'mm', format: 'a4', orientation: 'portrait', compress: true});
+  const els = exp.querySelectorAll('.pg');
+  for (let i = 0; i < els.length; i++) {
+    bar(i, els.length);
+    const c = await window.html2canvas(els[i], {scale: 2, backgroundColor: '#ffffff', logging: false, width: 794, height: 1123, windowWidth: 794, scrollX: 0, scrollY: 0});
+    if (i) pdf.addPage();
+    pdf.addImage(c.toDataURL('image/jpeg', .9), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+  }
+  bar(els.length, els.length);
+  exp.innerHTML = '';
+  return pdf.output('blob');
+}
+let lastUrl = null;
+function deliver(blob, name) {
+  if (lastUrl) URL.revokeObjectURL(lastUrl);
+  lastUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = lastUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  return lastUrl;
+}
+async function onSave() {
+  const p = problems();
+  if (p.length) {
+    const go = await modal(`<h3>아직 확인할 곳이 있어요</h3><ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p>그래도 지금 상태로 저장할 수 있어요.</p>`,
+      [{t: '돌아가서 채우기', v: false}, {t: '그대로 저장', v: true, pri: 1}]);
+    if (!go) return;
+  }
+  mod.innerHTML = `<h3>PDF 만드는 중</h3><div class="bar"><i id="barI"></i></div><p id="barT" style="margin:0">준비 중…</p>`;
+  ov.classList.add('show');
+  try {
+    const blob = await makePdf((i, n) => { const b = $('#barI'), t = $('#barT'); if (b) b.style.width = `${Math.round(i / n * 100)}%`; if (t) t.textContent = i < n ? `${i+1} / ${n}쪽 그리는 중…` : '파일로 묶는 중…'; });
+    ov.classList.remove('show');
+    const id = `${S.grade}${p2(S.cls || 0)}${p2(S.num || 0)}`;
+    const name = `체험학습결과보고서_${S.grade ? id + '_' : ''}${(S.name || '이름없음').trim()}.pdf`.replace(/[\\/:*?"<>|]/g, '');
+    const url = deliver(blob, name);
+    modal(`<h3>PDF를 저장했어요</h3><p>다운로드 폴더(휴대폰은 '파일' 앱이나 '내 파일')를 확인해 주세요.<br>다운로드가 보이지 않으면 아래 버튼으로 PDF를 열어 직접 저장하세요.</p><p><a class="btn" href="${url}" target="_blank" rel="noopener">PDF 열기</a></p>`, [{t: '확인', v: 0, pri: 1}]);
+  } catch (e) {
+    ov.classList.remove('show');
+    await modal(`<h3>PDF를 만들지 못했어요</h3><p>${e && e.message === 'lib' ? 'PDF 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 페이지를 새로고침해 주세요.' : '잠시 후 다시 시도해 주세요. 사진이 아주 많다면 몇 장 줄여 보세요.'}</p>`, [{t: '확인', v: 0, pri: 1}]);
+  }
+}
+$('#saveTop').addEventListener('click', onSave);
+$('#saveBottom').addEventListener('click', onSave);
+$('#pvJump').addEventListener('click', () => $('#pvCol').scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}));
+$('#resetBottom').addEventListener('click', () => $('#resetBtn').click());
+$('#resetBtn').addEventListener('click', async () => {
+  const ok = await modal('<h3>처음부터 다시 쓸까요?</h3><p>입력한 내용, 사진, 서명이 모두 지워져요. 되돌릴 수 없어요.</p>', [{t: '취소', v: false}, {t: '모두 지우기', v: true, pri: 1}]);
+  if (!ok) return;
+  S = blank(); fillInputs(); renderDays(); renderPhotos(); changed(); toast('새 양식으로 시작해요.');
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ov.classList.contains('show')) { const b = mod.querySelector('[data-i="0"]'); b && b.click(); } });
+
+/* ---------- 앱 안 브라우저 안내 ---------- */
+{
+  const ua = navigator.userAgent, box = $('#inapp');
+  if (/KAKAOTALK/i.test(ua)) {
+    box.innerHTML = '카카오톡 안에서는 PDF 저장이 안 될 수 있어요. <a id="openExt" href="#">기본 브라우저로 열기</a>';
+    box.hidden = false;
+    $('#openExt').addEventListener('click', e => { e.preventDefault(); location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href); });
+  } else if (/Instagram|FBAN|FBAV|NAVER|Line\/|everytimeApp|DaumApps/i.test(ua)) {
+    box.textContent = '앱 안의 브라우저에서는 PDF 저장이 안 될 수 있어요. 메뉴(⋮ 또는 ⋯)에서 "다른 브라우저로 열기"를 눌러 주세요.';
+    box.hidden = false;
+  }
+}
+
+/* ---------- 시작 ---------- */
+(async () => {
+  try { const v = await DB.get(); if (v && typeof v === 'object') { S = Object.assign(blank(), v); ['submit', 'guardian', 'sigG', 'sigS'].forEach(k => delete S[k]); S.photos = (S.photos || []).map(migrate); $('#saved').textContent = '이전에 쓰던 내용을 불러왔어요'; } } catch {}
+  fillInputs(); renderDays(); renderPhotos(); scale(); renderPreview();
+  try { await document.fonts.load('400 13.5px "Nanum Gothic"', '가'); await document.fonts.load('800 13.5px "Nanum Gothic"', '가'); } catch {}
+  renderPreview();
+})();
+}
+</script>
+</body>
+</html>
